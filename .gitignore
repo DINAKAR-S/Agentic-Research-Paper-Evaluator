@@ -1,0 +1,36 @@
+# Environment — never commit API keys
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Downloaded PDFs and cached papers
+cache/
+
+# Generated reports
+reports/
+
+# Runtime logs
+logs/
+*.log
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
