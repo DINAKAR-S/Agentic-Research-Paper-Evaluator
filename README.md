@@ -75,6 +75,11 @@ streamlit run app.py
 Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ---
+## Demo Video 
+
+Check Demo here [Video Link](https://drive.google.com/file/d/1yKjOoLSWrOSEJ4f51zaskQVUnTcE35cS/view?usp=sharing)
+
+---
 
 ## Usage
 
