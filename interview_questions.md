@@ -86,3 +86,140 @@ Scalability
 Q: How would you scale this to 1000 papers/day?
 
 Async parallel agents, Celery + Redis task queue, PostgreSQL instead of file cache, Docker + cloud auto-scaling, exponential backoff on API calls.
+
+Q1: If a paper has 5 chunks, how many total API calls are made?
+
+Answer:
+
+Agent calls:
+5 agents × 5 chunks each = 25 calls
+Aggregation (if aggregation_strategy="summarize"):
++1 synthesis call per agent = 5 calls
+Total:
+Concatenate mode: 25 calls
+Summarize mode: 30 calls
+Q2: In the actual pipeline, how many API calls happen per paper?
+
+Answer:
+
+Exactly 5 API calls.
+
+One call per agent:
+Consistency
+Grammar
+Novelty
+Fact-check
+Authenticity
+
+Reason:
+
+_create_tasks() slices input using character limits ([:6000–8000])
+Each agent receives ~500–2000 tokens
+Chunking logic is never triggered
+Q3: What happens for a large paper (e.g., 18,000 tokens)?
+
+Answer:
+
+Still exactly 5 LLM calls.
+
+Flow:
+18,000 token paper
+        │
+        ▼
+_create_tasks() slices BEFORE LLM
+        │
+        ├── methodology[:8000 chars] → ~2k tokens → Agent 1 → 1 call
+        ├── full_text[:6000 chars]   → ~1.5k tokens → Agent 2 → 1 call
+        ├── abstract                → ~500 tokens  → Agent 3 → 1 call
+        ├── full_text[:8000 chars]  → ~2k tokens → Agent 4 → 1 call
+        └── results[:6000 chars]    → ~1.5k tokens → Agent 5 → 1 call
+
+Key Insight:
+
+The full 18k tokens are never sent to the LLM
+Hard slicing trims input before inference
+Q4: Does LLMManager handle chunking in the current pipeline?
+
+Answer:
+
+No — it is not used.
+
+Evidence:
+Only referenced:
+Import statement
+Initialization in constructor
+Never called in:
+evaluate_paper()
+_create_tasks()
+evaluate_from_pdf()
+Actual Flow:
+Raw paper text
+      │
+      ▼
+_create_tasks() → slicing
+      │
+      ▼
+CrewAI agents
+      │
+      ▼
+LLM (5 calls)
+Q5: What was LLMManager designed for?
+
+Answer:
+
+To support:
+
+Token-based chunking
+Overlap handling
+Aggregation strategies:
+concatenate
+summarize
+
+⚠️ Status: Implemented but not wired into pipeline
+
+Q6: If LLMManager were integrated, how would it work?
+
+Answer:
+
+Designed Flow:
+18,000 token paper
+        │
+        ▼
+llm_manager.call_with_chunking()
+        │
+        ├── Chunk 1 → LLM → result 1
+        ├── Chunk 2 → LLM → result 2
+        │
+        ├── concatenate → combine results
+        │       OR
+        └── summarize → extra LLM call
+        │
+        ▼
+Final summarized text (~2k tokens)
+        │
+        ▼
+_create_tasks()
+        │
+        ▼
+5 agents → 5 calls
+Q7: Total LLM calls with LLMManager enabled?
+Step	Calls
+Chunk processing (2 chunks)	2
+Optional summarization	1
+Agent evaluations	5
+Total	7–8
+Q8: Current vs Designed Pipeline Comparison
+Aspect	Current Pipeline	With LLMManager
+Preprocessing	Character slicing	Token chunking + LLM
+Input quality	Truncated	Full coverage
+Agent context	Partial paper	Summarized full paper
+Total calls	5	7–8
+Cost	Low	Moderate
+Accuracy	Lower (lossy)	Higher
+Q9: Key Engineering Insight
+Current system is cost-optimized but lossy
+Designed system is context-complete but higher cost
+LLMManager enables:
+Scalability for large documents
+Better reasoning across full context
+Controlled token usage
